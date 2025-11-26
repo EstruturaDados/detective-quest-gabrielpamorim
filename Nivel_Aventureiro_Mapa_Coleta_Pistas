@@ -1,0 +1,309 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <ctype.h> // Para a função tolower ou toupper (opcional, mas bom para BST de strings)
+
+// --- I. DEFINIÇÃO DA ESTRUTURA DO MAPA (ÁRVORE BINÁRIA) ---
+
+/**
+ * @brief Estrutura que representa um cômodo (Nó) no mapa da mansão.
+ */
+typedef struct Sala {
+    char nome[50];          // Nome do cômodo
+    char pista[100];        // Pista associada à sala (pode ser vazia)
+    struct Sala* esquerda;  // Caminho esquerdo
+    struct Sala* direita;   // Caminho direito
+} Sala;
+
+
+// --- II. DEFINIÇÃO DA ESTRUTURA DE PISTAS (ÁRVORE BST) ---
+
+/**
+ * @brief Estrutura que representa um nó na Árvore Binária de Busca (BST) de Pistas.
+ */
+typedef struct PistaNode {
+    char conteudo[100];         // Conteúdo da pista
+    struct PistaNode* esquerda; // Menor que o pai
+    struct PistaNode* direita;  // Maior que o pai
+} PistaNode;
+
+
+// --- III. VARIÁVEL GLOBAL DA BST DE PISTAS ---
+PistaNode* raizPistas = NULL;
+
+
+// =========================================================================
+//                  IV. FUNÇÕES DO MAPA (ÁRVORE BINÁRIA)
+// =========================================================================
+
+/**
+ * @brief Cria e aloca dinamicamente um novo cômodo (Nó) no mapa.
+ * @param nomeSala O nome do cômodo.
+ * @param pistaConteudo O conteúdo da pista (use "" se não houver pista).
+ * @return O ponteiro para a nova sala criada.
+ */
+Sala* criarSala(const char* nomeSala, const char* pistaConteudo) {
+    Sala* novaSala = (Sala*)malloc(sizeof(Sala));
+
+    if (novaSala == NULL) {
+        printf("Erro: Falha na alocacao de memoria para a sala %s.\n", nomeSala);
+        exit(1);
+    }
+
+    strncpy(novaSala->nome, nomeSala, 49);
+    novaSala->nome[49] = '\0';
+    
+    strncpy(novaSala->pista, pistaConteudo, 99);
+    novaSala->pista[99] = '\0';
+
+    novaSala->esquerda = NULL;
+    novaSala->direita = NULL;
+
+    return novaSala;
+}
+
+/**
+ * @brief Libera recursivamente a memória alocada para o mapa (Árvore Binária).
+ */
+void liberarMapa(Sala* raiz) {
+    if (raiz != NULL) {
+        liberarMapa(raiz->esquerda);
+        liberarMapa(raiz->direita);
+        free(raiz);
+    }
+}
+
+// =========================================================================
+//                  V. FUNÇÕES DA BST DE PISTAS
+// =========================================================================
+
+/**
+ * @brief Cria e aloca dinamicamente um novo nó de pista.
+ */
+PistaNode* criarPistaNode(const char* conteudo) {
+    PistaNode* novoNode = (PistaNode*)malloc(sizeof(PistaNode));
+    if (novoNode == NULL) {
+        printf("Erro: Falha na alocacao de memoria para a pista.\n");
+        exit(1);
+    }
+    strncpy(novoNode->conteudo, conteudo, 99);
+    novoNode->conteudo[99] = '\0';
+    novoNode->esquerda = NULL;
+    novoNode->direita = NULL;
+    return novoNode;
+}
+
+/**
+ * @brief Insere recursivamente uma nova pista na BST, mantendo a ordem alfabética.
+ * @param raiz O nó raiz da BST.
+ * @param novaPista O conteúdo da pista a ser inserida.
+ * @return O novo nó raiz da BST.
+ */
+PistaNode* inserirPista(PistaNode* raiz, const char* novaPista) {
+    // Caso base: Se a sub-arvore estiver vazia, cria o novo nó aqui
+    if (raiz == NULL) {
+        return criarPistaNode(novaPista);
+    }
+
+    // Compara strings alfabeticamente
+    // strcmp retorna: < 0 se o primeiro for menor; > 0 se o primeiro for maior
+    if (strcmp(novaPista, raiz->conteudo) < 0) {
+        // Nova pista é alfabeticamente MENOR: vai para a esquerda
+        raiz->esquerda = inserirPista(raiz->esquerda, novaPista);
+    } else if (strcmp(novaPista, raiz->conteudo) > 0) {
+        // Nova pista é alfabeticamente MAIOR: vai para a direita
+        raiz->direita = inserirPista(raiz->direita, novaPista);
+    }
+    // Se for igual, a pista já existe (não faz nada, ignoramos duplicatas)
+
+    return raiz;
+}
+
+/**
+ * @brief Percorre a BST em Ordem Simétrica (In-Ordem) para exibir as pistas ordenadas.
+ * @param raiz O nó raiz da sub-árvore de pistas.
+ */
+void exibirPistas(PistaNode* raiz) {
+    if (raiz != NULL) {
+        // 1. Visita a sub-árvore esquerda (menores)
+        exibirPistas(raiz->esquerda);
+        
+        // 2. Processa o nó atual (imprime a pista)
+        printf(" -> %s\n", raiz->conteudo);
+        
+        // 3. Visita a sub-árvore direita (maiores)
+        exibirPistas(raiz->direita);
+    }
+}
+
+/**
+ * @brief Libera recursivamente a memória alocada para a BST de pistas.
+ */
+void liberarPistas(PistaNode* raiz) {
+    if (raiz != NULL) {
+        liberarPistas(raiz->esquerda);
+        liberarPistas(raiz->direita);
+        free(raiz);
+    }
+}
+
+
+// =========================================================================
+//                  VI. FUNÇÃO DE EXPLORAÇÃO INTERATIVA
+// =========================================================================
+
+/**
+ * @brief Permite a navegação interativa e coleta de pistas no mapa.
+ * @param hallRaiz O ponteiro para o Hall de entrada (raiz do mapa).
+ */
+void explorarSalasComPistas(Sala* hallRaiz) {
+    Sala* salaAtual = hallRaiz;
+    char escolha;
+    int pistasColetadas = 0;
+    
+    printf("\n==== INICIO DA INVESTIGACAO COM COLETA DE PISTAS ====\n");
+    printf("Voce esta no HALL DE ENTRADA.\n");
+    
+    // Loop principal de navegacao
+    while (salaAtual != NULL) {
+        printf("\n------------------------------------------------\n");
+        printf("Voce esta em: %s\n", salaAtual->nome);
+        
+        // Coleta de Pista
+        if (strcmp(salaAtual->pista, "") != 0) {
+            printf("🔍 PISTA ENCONTRADA: '%s'\n", salaAtual->pista);
+            
+            // Adiciona a pista à BST e marca a sala como 'limpa'
+            raizPistas = inserirPista(raizPistas, salaAtual->pista);
+            pistasColetadas++;
+            
+            // Para evitar a coleta da mesma pista mais de uma vez
+            strcpy(salaAtual->pista, ""); 
+            printf("✅ Pista adicionada a sua Arvore de Indicios. Total: %d\n", pistasColetadas);
+        } else {
+            printf("Sem novas pistas nesta sala.\n");
+        }
+        
+        // --- Opções de Navegação ---
+        
+        // Verifica se ainda há caminhos disponíveis
+        bool temCaminho = (salaAtual->esquerda != NULL || salaAtual->direita != NULL);
+
+        if (!temCaminho) {
+            printf("\n--- CAMINHO FINAL --- \n");
+            printf("Nao ha mais caminhos a explorar a partir daqui. Por favor, digite 's' para sair.\n");
+        }
+        
+        printf("Opcoes: ");
+        if (salaAtual->esquerda != NULL) {
+            printf("[e] Esquerda -> %s ", salaAtual->esquerda->nome);
+        }
+        if (salaAtual->direita != NULL) {
+            printf("[d] Direita -> %s ", salaAtual->direita->nome);
+        }
+        printf("[s] Sair\n");
+        
+        printf("Escolha: ");
+        if (scanf(" %c", &escolha) != 1) {
+             // Lida com entrada inválida
+             while(getchar() != '\n'); 
+             escolha = ' ';
+        }
+        
+        Sala* proximaSala = NULL;
+
+        switch (tolower(escolha)) {
+            case 'e':
+                proximaSala = salaAtual->esquerda;
+                if (proximaSala == NULL) {
+                    printf("❌ Caminho da Esquerda Bloqueado ou Inexistente!\n");
+                }
+                break;
+            case 'd':
+                proximaSala = salaAtual->direita;
+                if (proximaSala == NULL) {
+                    printf("❌ Caminho da Direita Bloqueado ou Inexistente!\n");
+                }
+                break;
+            case 's':
+                printf("\n--- INVESTIGACAO ENCERRADA PELO DETETIVE ---\n");
+                return; // Encerra a função e retorna para main
+            default:
+                printf("⚠️ Opcao invalida. Digite 'e', 'd' ou 's'.\n");
+                continue; 
+        }
+        
+        // Avança para a próxima sala se o caminho for válido
+        if (proximaSala != NULL) {
+            salaAtual = proximaSala;
+        }
+    }
+}
+
+// =========================================================================
+//                  VII. FUNÇÃO PRINCIPAL (MONTAGEM E EXECUÇÃO)
+// =========================================================================
+
+int main() {
+    // 1. Montagem do Mapa da Mansão (Árvore Binária)
+    
+    // Nível 0: Raiz (Hall)
+    Sala* hall = criarSala("Hall de Entrada", "Pegadas de barro na entrada");
+
+    // Nível 1
+    Sala* salaEstar = criarSala("Sala de Estar", "Vidro quebrado perto da lareira");
+    Sala* cozinha = criarSala("Cozinha", ""); // Sem pista
+    hall->esquerda = salaEstar;
+    hall->direita = cozinha;
+
+    // Nível 2
+    Sala* escritorio = criarSala("Escritorio", "Carta com ameaca anonima");
+    Sala* biblioteca = criarSala("Biblioteca", ""); // Sem pista
+    Sala* lavanderia = criarSala("Lavanderia", "Mancha de oleo em um pano");
+    
+    salaEstar->esquerda = escritorio;
+    salaEstar->direita = biblioteca;
+    cozinha->esquerda = lavanderia;
+    cozinha->direita = NULL; 
+
+    // Nível 3: Folhas ou caminhos que continuam
+    Sala* quartoPrincipal = criarSala("Quarto Principal", "Relogio parado as 3:15");
+    Sala* jardim = criarSala("Jardim", "Rastros de pneus no gramado");
+    
+    escritorio->esquerda = quartoPrincipal;
+    escritorio->direita = NULL;
+    biblioteca->esquerda = jardim; // Exemplo de BST
+    biblioteca->direita = NULL;
+    
+    lavanderia->esquerda = NULL; 
+    lavanderia->direita = NULL;
+    quartoPrincipal->esquerda = NULL;
+    quartoPrincipal->direita = NULL;
+    jardim->esquerda = NULL;
+    jardim->direita = NULL;
+
+
+    printf("Mapa da Mansao montado e pistas escondidas.\n");
+    
+    // 2. Inicia a Exploração e Coleta de Pistas
+    explorarSalasComPistas(hall);
+    
+    // 3. Exibe o Relatório Final (Pistas Coletadas em Ordem Alfabética)
+    printf("\n================================================\n");
+    printf("     RELATORIO FINAL: INDICIOS COLETADOS (BST)\n");
+    printf("================================================\n");
+
+    if (raizPistas == NULL) {
+        printf("Nenhuma pista foi coletada durante a investigacao.\n");
+    } else {
+        exibirPistas(raizPistas); // O In-Ordem garante a ordem alfabética
+    }
+    printf("================================================\n");
+    
+    // 4. Limpeza de Memória (Boa prática)
+    liberarMapa(hall);
+    liberarPistas(raizPistas);
+    
+    return 0;
+}
